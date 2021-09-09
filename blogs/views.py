@@ -9,39 +9,35 @@ from rest_framework import generics
 from rest_framework.views import APIView
 from rest_framework.response import Response
 
-from blogs.models import Blogs, Comment
+from blogs.models import Blog, Comment
 from blogs.permissions import IsAuthorOrReadOnly
 from blogs.serializers import BlogsSerializer, CommentSerializer
 
 
 class BlogsList(generics.ListCreateAPIView):
     """List all blogs, or create a new blog"""
-    queryset = Blogs.objects.all().order_by('-updated_at')
+    queryset = Blog.objects.all().order_by('-updated_at')
     serializer_class = BlogsSerializer
     
     def get_queryset(self):
         """For displaying author specific posts if author is specified in url"""
-        return_query = None
         if self.kwargs:
             try:
                 author = User.objects.get(username=self.kwargs['author'])
-                return_query = Blogs.objects.filter(author=author).order_by('-updated_at')
+                return Blog.objects.filter(author=author).order_by('-updated_at')
             except:
                 print('Author not found')
         else:
-            return_query = Blogs.objects.all().order_by('-updated_at')
-        return return_query
+            return Blog.objects.all().order_by('-updated_at')
             
     def perform_create(self, serializer):
         serializer.save(author=self.request.user)
 
 
-
-
 class BlogsDetail(generics.RetrieveUpdateDestroyAPIView):
     """Retrieve, update or delete a specific Blog"""
     permission_classes = [IsAuthorOrReadOnly]
-    queryset = Blogs.objects.all().order_by('-updated_at')
+    queryset = Blog.objects.all().order_by('-updated_at')
     serializer_class = BlogsSerializer
 
     def retrieve(self, request, pk):
@@ -51,7 +47,7 @@ class BlogsDetail(generics.RetrieveUpdateDestroyAPIView):
         blogSerialized = self.serializer_class(blogObj)
         data['post'] = blogSerialized.data
         if request.user.is_authenticated:
-            data['isAuth'] = 'yes' if blogObj in request.user.blogs_set.all() else ''
+            data['isAuth'] = 'yes' if blogObj in request.user.blog_set.all() else ''
         return Response(data)
 
 
@@ -62,12 +58,10 @@ class CommentsDetail(generics.ListCreateAPIView):
 
     def get_queryset(self):
         """To list only Blog specific comments"""
-        return_query = Comment.objects.filter(source_post_id=self.kwargs['pk']).order_by('-created_at')
-        return return_query
+        return Comment.objects.filter(post_id=self.kwargs['pk']).order_by('-created_at')
 
     def perform_create(self, serializer):
-        serializer.save(commentator=self.request.user, source_post=Blogs.objects.get(id=self.kwargs['pk']))
-    
+        serializer.save(commentator=self.request.user, post=Blog.objects.get(id=self.kwargs['pk']))
 
         
 def register_request(request):
